@@ -253,6 +253,70 @@ nav {
   background: var(--neon-dim);
 }
 
+/* LOOP BAR */
+.loop-bar {
+  margin-top: 28px;
+  animation: slideUp 0.4s ease 0.4s both;
+}
+
+.loop-inner {
+  display: flex;
+  justify-content: center;
+  gap: 0;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.loop-email {
+  flex: 1;
+  border-right: none;
+  font-size: 12px;
+  padding: 10px 14px;
+}
+
+.loop-btn {
+  white-space: nowrap;
+  padding: 10px 20px;
+  font-size: 11px;
+}
+
+.loop-sub {
+  text-align: center;
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 8px;
+  letter-spacing: 0.04em;
+}
+
+/* INTEREST MODAL EXTRAS */
+.interest-toggles {
+  display: flex;
+  gap: 4px;
+}
+
+.interest-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.interest-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px !important;
+  color: var(--dim) !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  font-weight: 400 !important;
+  cursor: pointer;
+}
+
+.interest-check input[type="checkbox"] {
+  accent-color: var(--neon);
+  cursor: pointer;
+}
+
 /* TICKER */
 .ticker {
   overflow: hidden;

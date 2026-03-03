@@ -42,7 +42,62 @@
       <button class="btn-sketch btn-sketch--fill" onclick="scrollToFeed()">browse listings</button>
       <button class="btn-sketch btn-sketch--ghost" onclick="openMo('postMo')">post credits</button>
     </div>
+    <div class="loop-bar">
+      <div class="loop-inner">
+        <input class="fi loop-email" type="email" id="loopEmail" placeholder="your@email.com">
+        <button class="btn-sketch btn-sketch--fill loop-btn" onclick="openInterestModal()">stay in the loop</button>
+      </div>
+      <div class="loop-sub">get notified about new deals, features & drops</div>
+    </div>
   </section>
+
+  <!-- Interest Modal -->
+  <div class="mo" id="interestMo" onclick="if(event.target===this)closeMo('interestMo')">
+    <div class="mo-box">
+      <div class="mo-head">
+        <h3>tell us what you're looking for</h3>
+        <button class="mo-x" onclick="closeMo('interestMo')">&times;</button>
+      </div>
+      <div class="mo-body">
+        <div class="fg">
+          <label>i'm interested in</label>
+          <div class="interest-toggles">
+            <button class="pill interest-pill on" data-val="both" onclick="setIntent(this)">both</button>
+            <button class="pill interest-pill" data-val="buying" onclick="setIntent(this)">buying</button>
+            <button class="pill interest-pill" data-val="selling" onclick="setIntent(this)">selling</button>
+          </div>
+        </div>
+        <div class="fg">
+          <label>which APIs? (select all that apply)</label>
+          <div class="interest-checks">
+            <label class="interest-check"><input type="checkbox" value="OpenAI" checked> OpenAI</label>
+            <label class="interest-check"><input type="checkbox" value="Anthropic" checked> Anthropic</label>
+            <label class="interest-check"><input type="checkbox" value="Google Cloud"> Google Cloud</label>
+            <label class="interest-check"><input type="checkbox" value="AWS"> AWS</label>
+            <label class="interest-check"><input type="checkbox" value="Vercel"> Vercel</label>
+            <label class="interest-check"><input type="checkbox" value="Other"> Other</label>
+          </div>
+        </div>
+        <div class="fg">
+          <label>monthly budget / volume</label>
+          <select class="fi fi-sel" id="interestBudget">
+            <option value="$0-100">$0 – $100</option>
+            <option value="$100-500">$100 – $500</option>
+            <option value="$500-2k" selected>$500 – $2,000</option>
+            <option value="$2k+">$2,000+</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>name (optional)</label>
+          <input class="fi" type="text" id="interestName" placeholder="your name">
+        </div>
+      </div>
+      <div class="mo-foot">
+        <button class="btn-sketch btn-sketch--ghost" onclick="closeMo('interestMo')">cancel</button>
+        <button class="btn-sketch btn-sketch--fill" onclick="submitInterest()">submit</button>
+      </div>
+    </div>
+  </div>
 
   <!-- TICKER -->
   <div class="ticker">

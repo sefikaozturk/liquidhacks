@@ -3,7 +3,7 @@ import { eq, desc } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { listings, users } from '../db/schema.js';
 import { requireAuth } from '../middleware/auth.js';
-import { recordTrade } from '../db/neo4j.js';
+
 
 const listingsRouter = new Hono();
 
@@ -115,9 +115,6 @@ listingsRouter.patch('/:id/traded', requireAuth, async (c) => {
     .set({ status: 'traded', updatedAt: new Date() })
     .where(eq(listings.id, id))
     .returning({ id: listings.id, status: listings.status });
-
-  // Record trade in Neo4j graph: (User)-[:COMPLETED_TRADE]->(Provider)
-  recordTrade(user.sub, id, existing[0].provider).catch(() => {});
 
   return c.json(updated[0]);
 });

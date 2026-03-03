@@ -32,6 +32,18 @@ async function main() {
     )
   `;
 
+  await sql`
+    CREATE TABLE IF NOT EXISTS interest (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      email text NOT NULL,
+      name text,
+      intent text NOT NULL,
+      apis text NOT NULL,
+      budget text NOT NULL,
+      created_at timestamp DEFAULT now() NOT NULL
+    )
+  `;
+
   console.log('Migrations done');
   await sql.end();
 }

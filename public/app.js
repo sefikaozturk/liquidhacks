@@ -571,6 +571,55 @@ async function openConversations() {
   }
 }
 
+// ── Interest / Stay in the Loop ───────────────────────
+let interestIntent = 'both';
+
+function openInterestModal() {
+  const email = document.getElementById('loopEmail').value.trim();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    toast('enter a valid email', true);
+    return;
+  }
+  openMo('interestMo');
+}
+
+function setIntent(btn) {
+  document.querySelectorAll('.interest-pill').forEach(p => p.classList.remove('on'));
+  btn.classList.add('on');
+  interestIntent = btn.dataset.val;
+}
+
+async function submitInterest() {
+  const email = document.getElementById('loopEmail').value.trim();
+  const name = document.getElementById('interestName').value.trim();
+  const budget = document.getElementById('interestBudget').value;
+  const apis = [...document.querySelectorAll('.interest-check input:checked')].map(cb => cb.value);
+
+  if (apis.length === 0) {
+    toast('select at least one API', true);
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/interest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, name: name || null, intent: interestIntent, apis, budget }),
+    });
+    if (res.ok) {
+      closeMo('interestMo');
+      document.getElementById('loopEmail').value = '';
+      document.getElementById('interestName').value = '';
+      toast('you\'re in the loop');
+    } else {
+      const err = await res.json();
+      toast(err.error || 'failed to submit', true);
+    }
+  } catch (e) {
+    toast('network error', true);
+  }
+}
+
 // Scroll
 function scrollToFeed() {
   // Reset filter to "all" when browsing (fixes "my listings" → "browse" flow)

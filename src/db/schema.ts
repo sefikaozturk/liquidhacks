@@ -45,3 +45,13 @@ export const messages = pgTable('messages', {
 }, (table) => [
   index('messages_conv_idx').on(table.listingId, table.buyerId, table.createdAt),
 ]);
+
+export const interest = pgTable('interest', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  email: text('email').notNull(),
+  name: text('name'),
+  intent: text('intent').notNull(), // 'buying' | 'selling' | 'both'
+  apis: text('apis').notNull(), // comma-separated: 'OpenAI,Anthropic,...'
+  budget: text('budget').notNull(), // '$0-100' | '$100-500' | '$500-2k' | '$2k+'
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});

@@ -10,6 +10,7 @@ import usersRouter from './routes/users.js';
 import dmRouter from './routes/dm.js';
 import adminRouter from './routes/admin.js';
 import aiRouter from './routes/ai.js';
+import interestRouter from './routes/interest.js';
 import { optionalAuth } from './middleware/auth.js';
 
 const app = new Hono();
@@ -26,6 +27,7 @@ app.route('/api/users', usersRouter);
 app.route('/api/dm', dmRouter);
 app.route('/api/admin', adminRouter);
 app.route('/api/ai', aiRouter);
+app.route('/api/interest', interestRouter);
 
 // Static files
 app.use('/*', serveStatic({ root: './public' }));
