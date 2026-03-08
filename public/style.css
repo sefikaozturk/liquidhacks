@@ -1236,6 +1236,7 @@ footer {
   .mo-box--chat { width: 95%; height: 90vh; }
   .chat-layout { flex-direction: column; }
   .chat-sidebar { width: 100%; border-left: none; border-top: 1px solid var(--border); max-height: 180px; }
+  .admin-stat-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
 /* ── Profile Modal ─────────────────────────────────── */
@@ -1545,6 +1546,91 @@ footer {
 .admin-stats { display: flex; flex-direction: column; gap: 1.5rem; }
 .admin-stats-section { display: flex; flex-direction: column; gap: 0.3rem; }
 .admin-stats-section .cs-label { margin-bottom: 0.4rem; }
+
+/* Admin quick links */
+.admin-links { display: flex; gap: 6px; flex-wrap: wrap; }
+.admin-link-btn {
+  padding: 5px 14px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--dim);
+  border: 1px solid var(--border);
+  text-decoration: none;
+  transition: all 0.1s;
+}
+.admin-link-btn:hover { border-color: var(--neon); color: var(--neon); background: var(--neon-dim); }
+
+/* Admin stat cards */
+.admin-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.admin-stat-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  padding: 12px;
+  text-align: center;
+}
+.admin-stat-card-val {
+  font-family: var(--head);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--neon);
+}
+.admin-stat-card-label {
+  font-size: 9px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-top: 2px;
+}
+
+/* Admin funnel */
+.admin-funnel { display: flex; flex-direction: column; gap: 6px; }
+.admin-funnel-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+  min-height: 28px;
+}
+.admin-funnel-bar {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  background: var(--neon-dim);
+  border-right: 2px solid var(--neon);
+  z-index: 0;
+  min-width: 4px;
+  transition: width 0.3s ease;
+}
+.admin-funnel-label {
+  position: relative; z-index: 1;
+  font-size: 10px;
+  color: var(--dim);
+  padding-left: 8px;
+  flex: 1;
+}
+.admin-funnel-step .admin-stat-val {
+  position: relative; z-index: 1;
+  padding-right: 8px;
+  font-size: 10px;
+}
+
+/* Admin provider bars */
+.admin-provider-bar-wrap {
+  flex: 1;
+  height: 6px;
+  background: var(--bg2);
+  margin: 0 8px;
+  overflow: hidden;
+}
+.admin-provider-bar {
+  height: 100%;
+  background: var(--neon);
+  opacity: 0.6;
+  transition: width 0.3s ease;
+}
 
 .admin-stat-row {
   display: flex;

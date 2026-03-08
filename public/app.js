@@ -33,13 +33,13 @@ document.addEventListener('DOMContentLoaded', () => {
   checkAuth();
   loadListings();
 
-  // Auto-show interest popup after 30s (once per visitor)
+  // Auto-show interest popup after 15s (once per visitor)
   if (!localStorage.getItem('lh_popup_seen')) {
     setTimeout(() => {
       if (!document.querySelector('.mo.open')) {
         openMo('interestMo');
       }
-    }, 30000);
+    }, 15000);
   }
 });
 
@@ -861,25 +861,116 @@ async function loadAdminAnalytics() {
     const res = await fetch('/api/admin/stats');
     if (!res.ok) { el.innerHTML = '<div class="grid-loading">failed</div>'; return; }
     const s = await res.json();
+
+    const convRate = s.users > 0 && s.listings > 0 ? ((s.listings / s.users) * 100).toFixed(0) : '—';
+    const tradedRate = s.listings > 0 ? (((s.byStatus.traded || 0) / s.listings) * 100).toFixed(0) : '—';
+    const supplyDemandRatio = (s.byType.selling || 0) > 0 && (s.byType.buying || 0) > 0
+      ? ((s.byType.selling || 0) / (s.byType.buying || 0)).toFixed(1) : '—';
+
+    const emailStats = s.emailStats || {};
+    const emailSent = emailStats.sent || 0;
+    const emailOpened = emailStats.opened || 0;
+    const emailClicked = emailStats.clicked || 0;
+    const emailBounced = emailStats.bounced || 0;
+    const openRate = emailSent > 0 ? ((emailOpened / emailSent) * 100).toFixed(0) + '%' : '—';
+    const clickRate = emailOpened > 0 ? ((emailClicked / emailOpened) * 100).toFixed(0) + '%' : '—';
+
+    const verification = s.verificationBreakdown || {};
+
     el.innerHTML = `
       <div class="admin-stats">
         <div class="admin-stats-section">
-          <div class="cs-label">overview</div>
-          <div class="admin-stat-row"><span>users</span><span class="admin-stat-val">${s.users}</span></div>
-          <div class="admin-stat-row"><span>listings</span><span class="admin-stat-val">${s.listings}</span></div>
-          <div class="admin-stat-row"><span>active</span><span class="admin-stat-val">${s.byStatus.active || 0}</span></div>
-          <div class="admin-stat-row"><span>traded</span><span class="admin-stat-val">${s.byStatus.traded || 0}</span></div>
+          <div class="cs-label">quick links</div>
+          <div class="admin-links">
+            <a href="/tos.html" target="_blank" class="admin-link-btn">terms of service</a>
+            <a href="/privacy.html" target="_blank" class="admin-link-btn">privacy policy</a>
+          </div>
+        </div>
+
+        <div class="admin-stats-section">
+          <div class="cs-label">key metrics</div>
+          <div class="admin-stat-grid">
+            <div class="admin-stat-card">
+              <div class="admin-stat-card-val">${s.users}</div>
+              <div class="admin-stat-card-label">users</div>
+            </div>
+            <div class="admin-stat-card">
+              <div class="admin-stat-card-val">${s.listings}</div>
+              <div class="admin-stat-card-label">listings</div>
+            </div>
+            <div class="admin-stat-card">
+              <div class="admin-stat-card-val">${s.interest || 0}</div>
+              <div class="admin-stat-card-label">waitlist</div>
+            </div>
+            <div class="admin-stat-card">
+              <div class="admin-stat-card-val">${s.byStatus.traded || 0}</div>
+              <div class="admin-stat-card-label">trades</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="admin-stats-section">
+          <div class="cs-label">conversion funnel</div>
+          <div class="admin-funnel">
+            <div class="admin-funnel-step">
+              <div class="admin-funnel-bar" style="width:100%"></div>
+              <span class="admin-funnel-label">visitors → signup</span>
+              <span class="admin-stat-val">${s.users} users</span>
+            </div>
+            <div class="admin-funnel-step">
+              <div class="admin-funnel-bar" style="width:${s.users > 0 ? Math.max(5, (s.listings / s.users) * 100) : 0}%"></div>
+              <span class="admin-funnel-label">signup → listed</span>
+              <span class="admin-stat-val">${convRate}% (${s.listings})</span>
+            </div>
+            <div class="admin-funnel-step">
+              <div class="admin-funnel-bar" style="width:${s.listings > 0 ? Math.max(5, ((s.byStatus.traded || 0) / s.listings) * 100) : 0}%"></div>
+              <span class="admin-funnel-label">listed → traded</span>
+              <span class="admin-stat-val">${tradedRate}% (${s.byStatus.traded || 0})</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="admin-stats-section">
+          <div class="cs-label">marketplace health</div>
+          <div class="admin-stat-row"><span>active listings</span><span class="admin-stat-val">${s.byStatus.active || 0}</span></div>
           <div class="admin-stat-row"><span>selling</span><span class="admin-stat-val">${s.byType.selling || 0}</span></div>
           <div class="admin-stat-row"><span>buying</span><span class="admin-stat-val">${s.byType.buying || 0}</span></div>
+          <div class="admin-stat-row"><span>supply:demand ratio</span><span class="admin-stat-val">${supplyDemandRatio}</span></div>
         </div>
+
         <div class="admin-stats-section">
           <div class="cs-label">by provider</div>
-          ${s.byProvider.map(p => `
+          ${s.byProvider.map((p, i) => {
+            const maxCount = s.byProvider[0]?.count || 1;
+            return `
+              <div class="admin-stat-row">
+                <span>${esc(p.provider)}</span>
+                <div class="admin-provider-bar-wrap">
+                  <div class="admin-provider-bar" style="width:${(p.count / maxCount) * 100}%"></div>
+                </div>
+                <span class="admin-stat-val">${p.count}</span>
+              </div>`;
+          }).join('')}
+        </div>
+
+        <div class="admin-stats-section">
+          <div class="cs-label">user verification</div>
+          ${Object.entries(verification).map(([level, count]) => `
             <div class="admin-stat-row">
-              <span>${esc(p.provider)}</span>
-              <span class="admin-stat-val">${p.count}</span>
+              <span>${level.replace(/_/g, ' ')}</span>
+              <span class="admin-stat-val">${count}</span>
             </div>
-          `).join('')}
+          `).join('') || '<div class="cs-dim">no data yet</div>'}
+        </div>
+
+        <div class="admin-stats-section">
+          <div class="cs-label">email outreach</div>
+          ${emailSent > 0 ? `
+            <div class="admin-stat-row"><span>sent</span><span class="admin-stat-val">${emailSent}</span></div>
+            <div class="admin-stat-row"><span>opened</span><span class="admin-stat-val">${emailOpened} (${openRate})</span></div>
+            <div class="admin-stat-row"><span>clicked</span><span class="admin-stat-val">${emailClicked} (${clickRate})</span></div>
+            <div class="admin-stat-row"><span>bounced</span><span class="admin-stat-val">${emailBounced}</span></div>
+          ` : '<div class="cs-dim">no emails sent yet — set up Resend to start outreach</div>'}
         </div>
       </div>
     `;
