@@ -2,7 +2,7 @@
 
 **P2P marketplace for hackathon API credits.** Hackers win API credits they'll never burn. Other builders need cheap compute. LiquidHacks connects them directly — no middlemen, no fees, no KYC.
 
-Live at **https://liquidhacks.onrender.com**
+Live at **https://liquidhacks.dev**
 
 ---
 
