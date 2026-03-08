@@ -1632,6 +1632,14 @@ footer {
   transition: width 0.3s ease;
 }
 
+/* Admin outreach */
+.admin-outreach-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
 .admin-stat-row {
   display: flex;
   justify-content: space-between;

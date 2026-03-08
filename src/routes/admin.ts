@@ -126,19 +126,19 @@ adminRouter.post('/growth/outreach', async (c) => {
   return c.json({ ok: true });
 });
 
-// Send test email
+// Send email (admin outreach)
 adminRouter.post('/test-email', async (c) => {
-  const { to } = await c.req.json();
+  const { to, subject, html } = await c.req.json();
   if (!to) return c.json({ error: 'Missing "to" address' }, 400);
 
   const result = await sendEmail({
     to,
-    subject: 'LiquidHacks — test email',
-    html: `<div style="font-family:monospace;padding:20px;background:#0d0d0d;color:#e8e8e8;">
+    subject: subject || 'LiquidHacks — test email',
+    html: html || `<div style="font-family:monospace;padding:20px;background:#0d0d0d;color:#e8e8e8;">
       <h2 style="color:#39ff14;">it works.</h2>
       <p>this is a test email from <a href="https://liquidhacks.dev" style="color:#39ff14;">liquidhacks.dev</a>.</p>
-      <p style="color:#777;font-size:12px;margin-top:20px;">sent via Resend from hello@liquidhacks.dev</p>
     </div>`,
+    replyTo: 'hello@liquidhacks.dev',
   });
 
   if (!result) return c.json({ error: 'Failed to send — check RESEND_API_KEY and domain verification' }, 500);

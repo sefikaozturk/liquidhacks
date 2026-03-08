@@ -759,9 +759,11 @@ async function loadProfileInto(username, body) {
           <div class="admin-tabs">
             <button class="admin-tab on" onclick="adminTab('growth',this)">growth agent</button>
             <button class="admin-tab" onclick="adminTab('analytics',this)">analytics</button>
+            <button class="admin-tab" onclick="adminTab('outreach',this)">outreach</button>
           </div>
           <div id="adminGrowth" class="admin-section"></div>
           <div id="adminAnalytics" class="admin-section" style="display:none"></div>
+          <div id="adminOutreach" class="admin-section" style="display:none"></div>
         </div>
       `);
       loadAdminGrowth();
@@ -778,6 +780,10 @@ function adminTab(name, btn) {
   btn.classList.add('on');
   document.getElementById('adminGrowth').style.display = name === 'growth' ? '' : 'none';
   document.getElementById('adminAnalytics').style.display = name === 'analytics' ? '' : 'none';
+  document.getElementById('adminOutreach').style.display = name === 'outreach' ? '' : 'none';
+  if (name === 'outreach' && !document.getElementById('adminOutreach').dataset.loaded) {
+    loadAdminOutreach();
+  }
 }
 
 async function loadAdminGrowth() {
@@ -851,6 +857,114 @@ async function markOutreach(devpost_profile, btn) {
     btn.disabled = false;
     btn.textContent = 'mark';
   }
+}
+
+// ── Admin Outreach (email sender) ────────────────────
+function loadAdminOutreach() {
+  const el = document.getElementById('adminOutreach');
+  if (!el) return;
+  el.dataset.loaded = '1';
+  el.innerHTML = `
+    <div class="admin-stats">
+      <div class="admin-stats-section">
+        <div class="cs-label">compose email</div>
+        <div class="fg">
+          <label>recipients (one per line, or comma-separated)</label>
+          <textarea id="outreachTo" class="fi fi-ta" rows="3" placeholder="alice@example.com, bob@example.com"></textarea>
+        </div>
+        <div class="fg">
+          <label>subject</label>
+          <input id="outreachSubject" class="fi" value="Unused hackathon credits? Turn them into cash" />
+        </div>
+        <div class="fg">
+          <label>body (html supported)</label>
+          <textarea id="outreachBody" class="fi fi-ta" rows="10">${defaultOutreachEmail()}</textarea>
+        </div>
+        <div class="admin-outreach-actions">
+          <button class="btn-sketch btn-sketch--ghost" style="padding:8px 16px;font-size:11px" onclick="previewOutreach()">preview</button>
+          <button class="btn-sketch btn-sketch--fill" style="padding:8px 16px;font-size:11px" onclick="sendOutreach()">send</button>
+          <span id="outreachStatus" class="cs-dim" style="margin-left:8px"></span>
+        </div>
+      </div>
+      <div id="outreachPreview" class="admin-stats-section" style="display:none">
+        <div class="cs-label">preview</div>
+        <div id="outreachPreviewFrame" style="background:#fff;border:1px solid var(--border);padding:16px;border-radius:4px;max-height:300px;overflow-y:auto"></div>
+      </div>
+      <div id="outreachLog" class="admin-stats-section" style="display:none">
+        <div class="cs-label">send log</div>
+        <div id="outreachLogList"></div>
+      </div>
+    </div>
+  `;
+}
+
+function defaultOutreachEmail() {
+  return esc(`<div style="font-family:monospace;max-width:560px;margin:0 auto;padding:24px;background:#0d0d0d;color:#e8e8e8;">
+  <h2 style="color:#39ff14;margin:0 0 16px;">hey — saw you won a hackathon</h2>
+  <p style="line-height:1.7;color:#ccc;">sitting on API credits you won't use? (OpenAI, Anthropic, AWS, GCP, etc.)</p>
+  <p style="line-height:1.7;color:#ccc;">we built <a href="https://liquidhacks.dev?utm_source=email&utm_medium=outreach&utm_campaign=manual" style="color:#39ff14;">LiquidHacks</a> — a P2P marketplace where hackers trade unused credits. list yours in 30 seconds, get paid via Stripe escrow.</p>
+  <p style="line-height:1.7;color:#ccc;">40-60% off for buyers. instant cash for sellers. no middlemen.</p>
+  <a href="https://liquidhacks.dev?utm_source=email&utm_medium=outreach&utm_campaign=manual" style="display:inline-block;padding:10px 24px;background:#39ff14;color:#0d0d0d;text-decoration:none;font-weight:700;font-family:monospace;margin-top:12px;">check it out →</a>
+  <p style="color:#555;font-size:11px;margin-top:24px;">— sefika @ liquidhacks</p>
+</div>`);
+}
+
+function previewOutreach() {
+  const body = document.getElementById('outreachBody').value;
+  const preview = document.getElementById('outreachPreview');
+  const frame = document.getElementById('outreachPreviewFrame');
+  frame.innerHTML = body;
+  preview.style.display = '';
+}
+
+async function sendOutreach() {
+  const toRaw = document.getElementById('outreachTo').value.trim();
+  const subject = document.getElementById('outreachSubject').value.trim();
+  const html = document.getElementById('outreachBody').value.trim();
+  const status = document.getElementById('outreachStatus');
+
+  if (!toRaw || !subject || !html) { toast('fill in all fields', true); return; }
+
+  // parse emails: split by newlines, commas, semicolons, spaces
+  const emails = toRaw.split(/[\n,;\s]+/).map(e => e.trim().toLowerCase()).filter(e => e.includes('@'));
+  if (emails.length === 0) { toast('no valid emails found', true); return; }
+
+  const logSection = document.getElementById('outreachLog');
+  const logList = document.getElementById('outreachLogList');
+  logSection.style.display = '';
+  logList.innerHTML = '';
+
+  status.textContent = `sending 0/${emails.length}...`;
+
+  let sent = 0;
+  let failed = 0;
+  for (const email of emails) {
+    try {
+      const res = await fetch('/api/admin/test-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: email, subject, html }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        sent++;
+        logList.insertAdjacentHTML('beforeend',
+          `<div class="admin-stat-row"><span>${esc(email)}</span><span class="admin-stat-val" style="color:var(--neon)">✓ sent</span></div>`);
+      } else {
+        failed++;
+        logList.insertAdjacentHTML('beforeend',
+          `<div class="admin-stat-row"><span>${esc(email)}</span><span style="color:var(--hot)">${esc(data.error || 'failed')}</span></div>`);
+      }
+    } catch {
+      failed++;
+      logList.insertAdjacentHTML('beforeend',
+        `<div class="admin-stat-row"><span>${esc(email)}</span><span style="color:var(--hot)">network error</span></div>`);
+    }
+    status.textContent = `sending ${sent + failed}/${emails.length}...`;
+  }
+
+  status.textContent = `done — ${sent} sent, ${failed} failed`;
+  if (sent > 0) toast(`${sent} email${sent > 1 ? 's' : ''} sent`);
 }
 
 async function loadAdminAnalytics() {
