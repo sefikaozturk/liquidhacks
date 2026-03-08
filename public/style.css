@@ -1554,3 +1554,150 @@ footer {
   color: var(--neon);
   font-weight: 600;
 }
+
+/* ── Escrow ──────────────────────────────────────────── */
+.card-escrow-badge {
+  font-size: 9px;
+  padding: 2px 7px;
+  border: 1px solid var(--purple);
+  color: var(--purple);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.card-verified-badge {
+  font-size: 9px;
+  padding: 2px 7px;
+  border: 1px solid #3F7D20;
+  color: #3F7D20;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.card-escrow-btn {
+  padding: 6px 12px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--purple);
+  background: var(--purple-dim);
+  border: 1px solid var(--purple);
+  cursor: pointer;
+  transition: all 0.1s;
+  text-transform: lowercase;
+}
+
+.card-escrow-btn:hover {
+  box-shadow: 0 0 10px rgba(180,74,255,0.15);
+  background: rgba(180,74,255,0.15);
+}
+
+.escrow-breakdown {
+  margin-bottom: 20px;
+}
+
+.escrow-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+}
+
+.escrow-row--dim {
+  font-size: 11px;
+  color: var(--dim);
+}
+
+.escrow-row--total {
+  font-weight: 700;
+  color: var(--neon);
+  border-bottom: none;
+  padding-top: 10px;
+  font-size: 15px;
+}
+
+.escrow-card-el {
+  padding: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  margin-bottom: 10px;
+  min-height: 44px;
+}
+
+.escrow-error {
+  font-size: 11px;
+  color: var(--hot);
+  min-height: 16px;
+}
+
+/* Deal items in My Deals modal */
+.deal-item {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.deal-item-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.deal-listing {
+  font-family: var(--head);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  margin-right: 12px;
+}
+
+.deal-amount {
+  font-size: 14px;
+  color: var(--neon);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.deal-item-mid {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.deal-role {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  color: var(--dim);
+}
+
+.deal-status {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 2px 7px;
+}
+
+.deal-status--pending-payment { border: 1px solid var(--dim); color: var(--dim); }
+.deal-status--paid { border: 1px solid var(--cash); color: var(--cash); }
+.deal-status--delivered { border: 1px solid var(--purple); color: var(--purple); }
+.deal-status--confirmed, .deal-status--released { border: 1px solid var(--neon); color: var(--neon); }
+.deal-status--disputed { border: 1px solid var(--hot); color: var(--hot); }
+.deal-status--refunded { border: 1px solid var(--hot); color: var(--hot); }
+
+.deal-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}

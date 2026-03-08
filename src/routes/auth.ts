@@ -35,20 +35,35 @@ auth.get('/github/callback', async (c) => {
   const ghRes = await fetch('https://api.github.com/user', {
     headers: { Authorization: `Bearer ${tokenData.access_token}` },
   });
-  const ghUser = await ghRes.json() as { id: number; login: string; avatar_url: string };
+  const ghUser = await ghRes.json() as { id: number; login: string; avatar_url: string; created_at: string; public_repos: number };
+
+  // Check GitHub account age for verification
+  const accountAgeMs = Date.now() - new Date(ghUser.created_at).getTime();
+  const sixMonthsMs = 6 * 30 * 24 * 60 * 60 * 1000;
+  const isGithubVerified = accountAgeMs > sixMonthsMs && (ghUser.public_repos || 0) > 0;
 
   // Upsert user
   const existing = await db.select().from(users).where(eq(users.githubId, ghUser.id)).limit(1);
   let user;
   if (existing.length > 0) {
+    const updateData: any = { username: ghUser.login, avatarUrl: ghUser.avatar_url };
+    // Upgrade verification level if currently 'none' and qualifies
+    if (existing[0].verificationLevel === 'none' && isGithubVerified) {
+      updateData.verificationLevel = 'github_verified';
+    }
     const updated = await db.update(users)
-      .set({ username: ghUser.login, avatarUrl: ghUser.avatar_url })
+      .set(updateData)
       .where(eq(users.githubId, ghUser.id))
       .returning();
     user = updated[0];
   } else {
     const inserted = await db.insert(users)
-      .values({ githubId: ghUser.id, username: ghUser.login, avatarUrl: ghUser.avatar_url })
+      .values({
+        githubId: ghUser.id,
+        username: ghUser.login,
+        avatarUrl: ghUser.avatar_url,
+        verificationLevel: isGithubVerified ? 'github_verified' : 'none',
+      })
       .returning();
     user = inserted[0];
   }

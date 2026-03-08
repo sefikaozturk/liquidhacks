@@ -113,14 +113,51 @@ escrowRouter.post('/create', requireAuth, async (c) => {
     return c.json({ error: 'Seller has not enabled escrow payments' }, 400);
   }
 
-  // Enforce one active tx per (listing, buyer)
-  const [existing] = await db.select({ id: transactions.id }).from(transactions)
+  // Enforce one active tx per (listing, buyer) — allow re-opening unpaid ones
+  const [existing] = await db.select().from(transactions)
     .where(and(
       eq(transactions.listingId, listingId),
       eq(transactions.buyerId, user.sub),
       inArray(transactions.status, ['pending_payment', 'paid', 'delivered']),
     )).limit(1);
-  if (existing) return c.json({ error: 'Active escrow already exists for this listing' }, 400);
+
+  if (existing && existing.status !== 'pending_payment') {
+    return c.json({ error: 'Active escrow already exists for this listing' }, 400);
+  }
+
+  // Reuse existing unpaid tx — just create a fresh checkout session
+  if (existing) {
+    const origin = new URL(c.req.url).origin;
+    const session = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      line_items: [{
+        price_data: {
+          currency: 'usd',
+          unit_amount: existing.amountCents,
+          product_data: {
+            name: listing.title,
+            description: `Escrow payment for API credits — ${listing.provider}`,
+          },
+        },
+        quantity: 1,
+      }],
+      metadata: {
+        transactionId: existing.id,
+        listingId,
+        buyerId: user.sub,
+        sellerId: listing.userId,
+      },
+      success_url: `${origin}/?escrow_paid=1`,
+      cancel_url: `${origin}/?escrow_cancelled=1`,
+    });
+    return c.json({
+      transactionId: existing.id,
+      checkoutUrl: session.url,
+      amount: existing.amountCents,
+      fee: existing.platformFeeCents,
+      sellerPayout: existing.sellerPayoutCents,
+    });
+  }
 
   const amountCents = listing.askingPrice;
   const platformFeeCents = Math.round(amountCents * PLATFORM_FEE_PERCENT / 100);

@@ -7,10 +7,40 @@ let searchQuery = '';
 let providerFilter = '';
 let availableOnly = false;
 
+// Analytics helper (no-op if Umami not loaded)
+function track(event, data) {
+  if (typeof umami !== 'undefined') umami.track(event, data);
+}
+
+// UTM capture
+function captureUtm() {
+  const params = new URLSearchParams(window.location.search);
+  const keys = ['utm_source', 'utm_medium', 'utm_campaign'];
+  const utm = {};
+  let hasUtm = false;
+  for (const k of keys) {
+    const v = params.get(k);
+    if (v) { utm[k] = v; hasUtm = true; }
+  }
+  const ref = document.referrer;
+  if (ref) utm.referrer = ref;
+  if (hasUtm || ref) sessionStorage.setItem('lh_utm', JSON.stringify(utm));
+}
+
 // Init
 document.addEventListener('DOMContentLoaded', () => {
+  captureUtm();
   checkAuth();
   loadListings();
+
+  // Auto-show interest popup after 30s (once per visitor)
+  if (!localStorage.getItem('lh_popup_seen')) {
+    setTimeout(() => {
+      if (!document.querySelector('.mo.open')) {
+        openMo('interestMo');
+      }
+    }, 30000);
+  }
 });
 
 // Auth
@@ -27,6 +57,7 @@ async function checkAuth() {
         document.getElementById('navAvatar').src = currentUser.avatarUrl;
       }
       checkMyEscrowStatus();
+      track('signup');
     }
   } catch (e) {
     // Not logged in
@@ -94,6 +125,7 @@ function render() {
           <span class="card-type ${item.type === 'selling' ? 'card-type--sell' : 'card-type--buy'}">${item.type}</span>
           <span class="card-provider">${esc(item.provider)}</span>
           ${item.sellerEscrow && item.type === 'selling' ? `<span class="card-escrow-badge">escrow</span>` : ''}
+          ${item.verificationLevel && item.verificationLevel !== 'none' ? `<span class="card-verified-badge" title="${item.verificationLevel.replace(/_/g, ' ')}">\u2713 verified</span>` : ''}
           ${isTraded ? `<span class="card-traded-badge">traded</span>` : ''}
         </div>
         <div class="card-title">${esc(item.title)}</div>
@@ -223,8 +255,10 @@ async function submitListing() {
     if (res.ok) {
       closeMo('postMo');
       clearForm();
+      const wasEdit = !!editingId;
       editingId = null;
-      toast(editingId ? 'listing updated' : 'listing posted');
+      toast(wasEdit ? 'listing updated' : 'listing posted');
+      if (!wasEdit) track('listing_created', { provider: body.provider, type: body.type });
       loadListings();
     } else {
       const err = await res.json();
@@ -341,6 +375,7 @@ function openMo(id) { document.getElementById(id).classList.add('open'); }
 function closeMo(id) {
   document.getElementById(id).classList.remove('open');
   if (id === 'postMo') clearForm();
+  if (id === 'interestMo') localStorage.setItem('lh_popup_seen', '1');
 }
 
 // Toast
@@ -613,6 +648,8 @@ async function submitInterest() {
       closeMo('interestMo');
       document.getElementById('loopEmail').value = '';
       document.getElementById('interestName').value = '';
+      localStorage.setItem('lh_popup_seen', '1');
+      track('interest_submitted', { intent: interestIntent });
       toast('you\'re in the loop');
     } else {
       const err = await res.json();
@@ -691,7 +728,7 @@ async function loadProfileInto(username, body) {
           </div>
           <div class="profile-since">member since ${since}</div>
           ${!isOwnProfile ? `<button class="btn-sketch btn-sketch--fill profile-dm-btn" onclick="openDm('${user.id}','${esc(user.username)}')">send message</button>` : ''}
-          ${isOwnProfile && !onboardedSellers.has(user.id) ? `<button class="btn-sketch btn-sketch--ghost profile-dm-btn" onclick="enableEscrow()">enable escrow payments</button>` : ''}
+          ${isOwnProfile && !onboardedSellers.has(user.id) ? `<button class="btn-sketch btn-sketch--ghost profile-dm-btn" onclick="enableEscrow(this)">enable escrow payments</button>` : ''}
           ${isOwnProfile && onboardedSellers.has(user.id) ? `<span class="card-escrow-badge" style="margin-top:0.5rem">escrow enabled</span>` : ''}
         </div>
       </div>
@@ -990,8 +1027,14 @@ async function checkMyEscrowStatus() {
   } catch {}
 }
 
-async function enableEscrow() {
+async function enableEscrow(btn) {
   if (!currentUser) { toast('log in first', true); return; }
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'connecting to stripe';
+    let dots = 0;
+    btn._dotTimer = setInterval(() => { dots = (dots + 1) % 4; btn.textContent = 'connecting to stripe' + '.'.repeat(dots); }, 400);
+  }
   try {
     const res = await fetch('/api/escrow/onboard', { method: 'POST' });
     const data = await res.json();
@@ -999,8 +1042,12 @@ async function enableEscrow() {
       window.location.href = data.url;
     } else {
       toast(data.error || 'failed to start onboarding', true);
+      if (btn) { clearInterval(btn._dotTimer); btn.disabled = false; btn.textContent = 'enable escrow payments'; }
     }
-  } catch { toast('network error', true); }
+  } catch {
+    toast('network error', true);
+    if (btn) { clearInterval(btn._dotTimer); btn.disabled = false; btn.textContent = 'enable escrow payments'; }
+  }
 }
 
 async function openEscrowPayment(listingId) {
@@ -1019,8 +1066,8 @@ async function openEscrowPayment(listingId) {
     const data = await res.json();
     if (!res.ok) { toast(data.error || 'failed', true); return; }
 
-    // Redirect to Stripe Checkout
-    window.location.href = data.checkoutUrl;
+    track('escrow_started', { provider: listing.provider });
+    window.open(data.checkoutUrl, '_blank');
   } catch (e) {
     toast('network error', true);
   }

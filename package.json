@@ -17,6 +17,7 @@
     "hono": "^4",
     "jose": "^6",
     "postgres": "^3",
+    "stripe": "^20.4.0",
     "typescript": "^5"
   },
   "devDependencies": {

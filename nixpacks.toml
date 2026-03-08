@@ -1,0 +1,15 @@
+[phases.setup]
+nixPkgs = ["nodejs_20"]
+onlyIncludeFiles = ["package.json", "package-lock.json", "tsconfig.json", "src", "public", "drizzle.config.ts"]
+
+[phases.install]
+cmds = ["npm install"]
+
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "node dist/index.js"
+
+[providers]
+exclude = ["python"]

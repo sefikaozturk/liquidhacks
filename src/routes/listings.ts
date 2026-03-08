@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { listings, users } from '../db/schema.js';
 import { requireAuth } from '../middleware/auth.js';
@@ -25,6 +25,8 @@ listingsRouter.get('/', async (c) => {
       contactInfo: listings.contactInfo, createdAt: listings.createdAt,
       userId: listings.userId, status: listings.status,
       username: users.username, avatarUrl: users.avatarUrl,
+      sellerEscrow: users.stripeOnboarded,
+      verificationLevel: users.verificationLevel,
     }).from(listings).leftJoin(users, eq(listings.userId, users.id)).orderBy(desc(listings.createdAt)));
     return c.json(await q);
   } catch {
@@ -83,6 +85,20 @@ listingsRouter.post('/', requireAuth, async (c) => {
 
   if (type !== 'selling' && type !== 'buying') {
     return c.json({ error: 'Type must be selling or buying' }, 400);
+  }
+
+  // Duplicate detection: same user + provider + similar face value + active
+  const duplicates = await db.select({ id: listings.id })
+    .from(listings)
+    .where(and(
+      eq(listings.userId, user.sub),
+      eq(listings.provider, provider),
+      eq(listings.status, 'active'),
+    ))
+    .limit(1);
+
+  if (duplicates.length > 0) {
+    return c.json({ error: 'You already have an active listing for this provider. Edit it or mark it as traded first.' }, 409);
   }
 
   const inserted = await db.insert(listings).values({

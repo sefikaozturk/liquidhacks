@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { eq, count } from 'drizzle-orm';
 import { db, client } from '../db/index.js';
-import { users, listings } from '../db/schema.js';
+import { users, listings, interest } from '../db/schema.js';
 import { requireAuth } from '../middleware/auth.js';
 import fs from 'fs';
 import path from 'path';
@@ -40,12 +40,29 @@ adminRouter.get('/stats', async (c) => {
     // status column may not exist yet
   }
 
+  // Funnel metrics
+  const [interestCount] = await db.select({ count: count() }).from(interest);
+
+  let emailStats = { sent: 0, opened: 0, clicked: 0, bounced: 0 };
+  try {
+    const rows = await client`SELECT status, count(*)::int FROM outreach_emails GROUP BY status`;
+    for (const r of rows as any[]) emailStats[r.status as keyof typeof emailStats] = r.count;
+  } catch { /* table may not exist */ }
+
+  let verificationBreakdown: any[] = [];
+  try {
+    verificationBreakdown = await client`SELECT verification_level, count(*)::int FROM users GROUP BY verification_level`;
+  } catch { /* column may not exist */ }
+
   return c.json({
     users: userCount.count,
     listings: listingCount.count,
+    interest: interestCount.count,
     byType: Object.fromEntries((byType as any[]).map(r => [r.type, r.count])),
     byStatus: Object.fromEntries((byStatus as any[]).map(r => [r.status, r.count])),
     byProvider: (byProvider as any[]).map(r => ({ provider: r.provider, count: r.count })),
+    emailStats,
+    verificationBreakdown: Object.fromEntries((verificationBreakdown as any[]).map(r => [r.verification_level, r.count])),
   });
 });
 
