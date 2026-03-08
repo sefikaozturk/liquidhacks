@@ -15,70 +15,99 @@ auth.get('/github', (c) => {
 });
 
 auth.get('/github/callback', async (c) => {
-  const code = c.req.query('code');
-  if (!code) return c.json({ error: 'Missing code' }, 400);
+  try {
+    const code = c.req.query('code');
+    if (!code) return c.json({ error: 'Missing code' }, 400);
 
-  // Exchange code for access token
-  const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({
-      client_id: process.env.GITHUB_CLIENT_ID,
-      client_secret: process.env.GITHUB_CLIENT_SECRET,
-      code,
-    }),
-  });
-  const tokenData = await tokenRes.json() as { access_token?: string; error?: string };
-  if (!tokenData.access_token) return c.json({ error: 'OAuth failed' }, 400);
+    // Exchange code for access token
+    const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        client_id: process.env.GITHUB_CLIENT_ID,
+        client_secret: process.env.GITHUB_CLIENT_SECRET,
+        code,
+      }),
+    });
+    const tokenData = await tokenRes.json() as { access_token?: string; error?: string };
+    if (!tokenData.access_token) return c.json({ error: 'OAuth failed' }, 400);
 
-  // Fetch GitHub user
-  const ghRes = await fetch('https://api.github.com/user', {
-    headers: { Authorization: `Bearer ${tokenData.access_token}` },
-  });
-  const ghUser = await ghRes.json() as { id: number; login: string; avatar_url: string; created_at: string; public_repos: number };
+    // Fetch GitHub user
+    const ghRes = await fetch('https://api.github.com/user', {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    });
+    const ghUser = await ghRes.json() as { id: number; login: string; avatar_url: string; created_at: string; public_repos: number };
 
-  // Check GitHub account age for verification
-  const accountAgeMs = Date.now() - new Date(ghUser.created_at).getTime();
-  const sixMonthsMs = 6 * 30 * 24 * 60 * 60 * 1000;
-  const isGithubVerified = accountAgeMs > sixMonthsMs && (ghUser.public_repos || 0) > 0;
+    // Check GitHub account age for verification
+    let isGithubVerified = false;
+    try {
+      const accountAgeMs = Date.now() - new Date(ghUser.created_at).getTime();
+      const sixMonthsMs = 6 * 30 * 24 * 60 * 60 * 1000;
+      isGithubVerified = accountAgeMs > sixMonthsMs && (ghUser.public_repos || 0) > 0;
+    } catch { /* verification check is non-critical */ }
 
-  // Upsert user
-  const existing = await db.select().from(users).where(eq(users.githubId, ghUser.id)).limit(1);
-  let user;
-  if (existing.length > 0) {
-    const updateData: any = { username: ghUser.login, avatarUrl: ghUser.avatar_url };
-    // Upgrade verification level if currently 'none' and qualifies
-    if (existing[0].verificationLevel === 'none' && isGithubVerified) {
-      updateData.verificationLevel = 'github_verified';
+    // Upsert user — try with verificationLevel first, fall back without it
+    let user;
+    try {
+      const existing = await db.select().from(users).where(eq(users.githubId, ghUser.id)).limit(1);
+      if (existing.length > 0) {
+        const updateData: any = { username: ghUser.login, avatarUrl: ghUser.avatar_url };
+        if (existing[0].verificationLevel === 'none' && isGithubVerified) {
+          updateData.verificationLevel = 'github_verified';
+        }
+        const updated = await db.update(users)
+          .set(updateData)
+          .where(eq(users.githubId, ghUser.id))
+          .returning();
+        user = updated[0];
+      } else {
+        const inserted = await db.insert(users)
+          .values({
+            githubId: ghUser.id,
+            username: ghUser.login,
+            avatarUrl: ghUser.avatar_url,
+            verificationLevel: isGithubVerified ? 'github_verified' : 'none',
+          })
+          .returning();
+        user = inserted[0];
+      }
+    } catch (dbErr) {
+      // Fallback: verification_level column may not exist yet (pre-migration)
+      console.error('Auth DB error (trying fallback):', dbErr);
+      const existing = await db.select({
+        id: users.id, githubId: users.githubId, username: users.username,
+        avatarUrl: users.avatarUrl, createdAt: users.createdAt,
+      }).from(users).where(eq(users.githubId, ghUser.id)).limit(1);
+
+      if (existing.length > 0) {
+        const updated = await db.update(users)
+          .set({ username: ghUser.login, avatarUrl: ghUser.avatar_url })
+          .where(eq(users.githubId, ghUser.id))
+          .returning();
+        user = updated[0];
+      } else {
+        const inserted = await db.insert(users)
+          .values({ githubId: ghUser.id, username: ghUser.login, avatarUrl: ghUser.avatar_url })
+          .returning();
+        user = inserted[0];
+      }
     }
-    const updated = await db.update(users)
-      .set(updateData)
-      .where(eq(users.githubId, ghUser.id))
-      .returning();
-    user = updated[0];
-  } else {
-    const inserted = await db.insert(users)
-      .values({
-        githubId: ghUser.id,
-        username: ghUser.login,
-        avatarUrl: ghUser.avatar_url,
-        verificationLevel: isGithubVerified ? 'github_verified' : 'none',
-      })
-      .returning();
-    user = inserted[0];
+
+    // Sign JWT and set cookie
+    const jwt = await signToken({ sub: user.id, username: user.username });
+    setCookie(c, 'token', jwt, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'Lax',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+    });
+
+    return c.redirect('/');
+  } catch (err) {
+    console.error('Auth callback error:', err);
+    return c.json({ error: 'Authentication failed', details: String(err) }, 500);
   }
-
-  // Sign JWT and set cookie
-  const jwt = await signToken({ sub: user.id, username: user.username });
-  setCookie(c, 'token', jwt, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'Lax',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 7, // 7 days
-  });
-
-  return c.redirect('/');
 });
 
 auth.post('/logout', (c) => {
