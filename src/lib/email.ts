@@ -1,5 +1,5 @@
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const FROM_EMAIL = process.env.FROM_EMAIL || 'LiquidHacks <noreply@liquidhacks.dev>';
+const FROM_EMAIL = process.env.FROM_EMAIL || 'LiquidHacks <hello@liquidhacks.dev>';
 
 interface SendEmailOptions {
   to: string;
