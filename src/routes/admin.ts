@@ -85,13 +85,32 @@ adminRouter.get('/growth', async (c) => {
   } catch { /* table may not exist yet */ }
   const outreached = new Map(outreachRows.map((r: any) => [r.devpost_profile, r.reached_out_at]));
 
+  // Load enriched GitHub profiles (username → {email, name})
+  const githubProfiles = new Map<string, { email: string | null; name: string | null }>();
+  try {
+    const rows = await client`SELECT username, email, name FROM github_profiles`;
+    for (const r of rows as any[]) {
+      githubProfiles.set(r.username.toLowerCase(), { email: r.email, name: r.name });
+    }
+  } catch { /* table may not exist yet */ }
+
   // Flatten projects → one row per team member
   const contacts: any[] = [];
   for (const p of projects) {
     for (const m of (p.team_members || [])) {
       if (!m.name || m.name.startsWith('http')) continue;
       const profile = m.devpost_url || m.devpost_profile || '';
-      const hasContact = m.email || m.linkedin || m.twitter || m.github;
+
+      // Resolve GitHub username from URL or bare string
+      const ghRaw: string = m.github || m.member_github || '';
+      const ghMatch = ghRaw.match(/github\.com\/([^/?#]+)/i);
+      const ghUsername = ghMatch ? ghMatch[1] : ghRaw.trim();
+      const ghData = ghUsername ? githubProfiles.get(ghUsername.toLowerCase()) : null;
+
+      // Prefer Devpost email → GitHub-enriched email
+      const email = m.email || ghData?.email || '';
+      const hasContact = email || m.linkedin || m.twitter || ghUsername;
+
       contacts.push({
         name: m.name,
         devpost_profile: profile,
@@ -99,10 +118,11 @@ adminRouter.get('/growth', async (c) => {
         project_title: p.title || '',
         project_url: p.url || '',
         prize: (p.prize_details?.[0] || p.prizes?.[0] || '').toString().slice(0, 40),
-        github: m.github || '',
+        github: ghUsername || '',
         linkedin: m.linkedin || '',
         twitter: m.twitter || '',
-        email: m.email || '',
+        email,
+        email_source: m.email ? 'devpost' : ghData?.email ? 'github' : '',
         has_contact: !!hasContact,
         reached_out: outreached.has(profile),
         reached_out_at: outreached.get(profile) || null,
